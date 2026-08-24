@@ -24,7 +24,7 @@ nanopayments, multichain wallets, treasury, stablecoin FX, lend/borrow, and
 prediction markets. Building a tenth app is not where the gap is.
 
 The gap is that Arc diverges from Ethereum in ways that make *correct* code look
-wrong and *wrong* code look fine — and nothing catches the difference:
+wrong and *wrong* code look fine, and the standard toolchain says nothing:
 
 | Hazard | What breaks | Tool |
 |---|---|---|
@@ -38,6 +38,27 @@ wrong and *wrong* code look fine — and nothing catches the difference:
 Every rule and every claim above traces to a specific line in Arc's docs or to a
 live RPC observation. See [ARC-NOTES.md](ARC-NOTES.md) for the full research
 trail, including five gaps in Arc's own documentation.
+
+### Prior art
+
+[`arc-lint` by Egor Galkin](https://github.com/Ega741/arc-lint) (npm `arc-lint`,
+first published 2026-08-07) covers the same ground for Solidity, and does it with
+**solc AST analysis** rather than the pattern matching here — which is more precise,
+and includes a contract-level rule that reasons across functions and inheritance.
+If you only need Solidity checks, look at it first.
+
+The two overlap on five hazards (prevrandao, the decimal mix, selfdestruct, WETH
+wrappers, zero-address sends) and diverge either side of that:
+
+| | this repo | Ega741/arc-lint |
+|---|---|---|
+| Analysis | pattern matching over stripped source | solc AST, with a degraded parse-only mode |
+| Deploy scripts (`.ts`/`.js`) | yes — the fee floor and `parseEther` rules live there | no |
+| Foundry / Hardhat / SARIF | yes | GitHub annotations, JSON, markdown |
+| Sub-second timestamp deltas | **no** — a real hazard, covered there as ARC002 | yes |
+| Blob opcodes, beacon roots, `balanceOf() == 0`, `ether` unit, Multicall3From | yes | no |
+
+`arc-index` and `arc-agents` have no equivalent I could find on npm.
 
 ---
 

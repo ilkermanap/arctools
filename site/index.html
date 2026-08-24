@@ -146,9 +146,17 @@
   </p>
   <p>
     The gap is that <strong>correct code looks wrong and wrong code looks fine</strong>,
-    and nothing in the toolchain tells the difference. Anyone building stablecoin FX or a
-    lending market on Arc hits the decimal trap and the dual-emitter problem on day one.
-    These three sit underneath those applications rather than beside them.
+    and the standard toolchain says nothing. Anyone building stablecoin FX or a lending
+    market on Arc hits the decimal trap and the dual-emitter problem on day one. These
+    three sit underneath those applications rather than beside them.
+  </p>
+  <p>
+    On the linting side there is prior art:
+    <a href="https://github.com/Ega741/arc-lint">arc-lint by Egor Galkin</a> covers the
+    same Solidity hazards using solc AST analysis, which is more precise than the pattern
+    matching here. This repo adds deploy-script rules, Foundry and Hardhat integration,
+    and SARIF output — and the indexing and agent-registry tools have no equivalent I
+    could find.
   </p>
 
   <h2 id="verified">Verified, not assumed</h2>
