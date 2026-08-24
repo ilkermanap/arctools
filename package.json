@@ -17,7 +17,13 @@
     "arc-index": "node packages/arc-index/src/cli.ts",
     "arc-agents": "node packages/arc-agents/src/cli.ts",
     "serve": "node packages/arc-server/src/server.ts",
-    "mirror-docs": "node tools/mirror-docs.ts"
+    "mirror-docs": "node tools/mirror-docs.ts",
+    "build": "npm run build --workspaces --if-present"
   },
-  "homepage": "https://arctools.mynodes.xyz"
+  "homepage": "https://arctools.mynodes.xyz",
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  }
 }

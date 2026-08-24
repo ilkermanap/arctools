@@ -44,11 +44,18 @@
 <main class="wrap">
 
   <h2 id="use">Using it</h2>
-  <pre><code>node src/cli.ts contracts/ scripts/
-node src/cli.ts --rules                         <span class="c"># list every rule</span>
-node src/cli.ts --foundry                       <span class="c"># read foundry.toml</span>
-node src/cli.ts --sarif --out arc-lint.sarif    <span class="c"># GitHub code scanning</span>
-node src/cli.ts --github                        <span class="c"># PR annotations</span></code></pre>
+  <pre><code>npm install --save-dev arc-evm-lint
+
+npx arc-evm-lint contracts/ scripts/
+npx arc-evm-lint --rules                         <span class="c"># list every rule</span>
+npx arc-evm-lint --foundry                       <span class="c"># read foundry.toml</span>
+npx arc-evm-lint --sarif --out arc-lint.sarif    <span class="c"># GitHub code scanning</span>
+npx arc-evm-lint --github                        <span class="c"># PR annotations</span></code></pre>
+  <p class="lead-in">
+    Published as <code>arc-evm-lint</code>: <code>arc-lint</code> on npm is
+    <a href="https://github.com/Ega741/arc-lint">Egor Galkin's linter</a>, which covers
+    the same Solidity hazards with solc AST analysis.
+  </p>
 
   <pre><code>Bad.sol
   17:59   <span class="e">error</span>   block.prevrandao is always 0 on Arc  arc/no-prevrandao
@@ -102,7 +109,7 @@ node src/cli.ts --github                        <span class="c"># PR annotations
     same config <code>forge</code> reads, lint exactly what it compiles, and skip the
     dependency tree in <code>libs</code>.
   </p>
-  <pre><code>node src/cli.ts --foundry</code></pre>
+  <pre><code>npx arc-evm-lint --foundry</code></pre>
   <p>
     <code>--foundry</code> reads <code>src</code>, <code>script</code>, <code>test</code>,
     and <code>libs</code> from <code>foundry.toml</code>, honouring

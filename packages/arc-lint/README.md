@@ -1,6 +1,15 @@
-# arc-lint
+# arc-evm-lint
 
 Flag Arc-incompatible Solidity and script patterns before you deploy.
+
+```bash
+npm install --save-dev arc-evm-lint
+npx arc-evm-lint contracts/ scripts/
+```
+
+> Published as **`arc-evm-lint`** because `arc-lint` on npm is
+> [Egor Galkin's linter](https://github.com/Ega741/arc-lint), which covers the
+> same Solidity hazards using solc AST analysis. See [Prior art](#prior-art).
 
 Arc is EVM-compatible, so existing contracts *compile and deploy* unchanged.
 That is the problem: the places where Arc's semantics differ from Ethereum's are
@@ -8,12 +17,12 @@ invisible to the compiler and to `anvil`, which runs a stock EVM. `arc-lint`
 catches them by reading source.
 
 ```bash
-node src/cli.ts contracts/ scripts/
-node src/cli.ts --rules
-node src/cli.ts . --json --quiet
-node src/cli.ts --foundry                       # read foundry.toml
-node src/cli.ts --sarif --out arc-lint.sarif    # GitHub code scanning
-node src/cli.ts --github                        # PR annotations
+npx arc-evm-lint contracts/ scripts/
+npx arc-evm-lint --rules
+npx arc-evm-lint . --json --quiet
+npx arc-evm-lint --foundry                       # read foundry.toml
+npx arc-evm-lint --sarif --out arc-lint.sarif    # GitHub code scanning
+npx arc-evm-lint --github                        # PR annotations
 ```
 
 Exit code is 1 when any error-severity finding remains, so it drops into CI as-is.
@@ -102,3 +111,16 @@ node --test 'test/*.test.ts'
 33 tests, fully offline. `test/fixtures/Bad.sol` is expected to trip ten rules
 exactly once each; `Good.sol` must stay clean. The rest pin the SARIF and
 annotation encodings and the `foundry.toml` reader.
+
+## Prior art
+
+[`arc-lint` by Egor Galkin](https://github.com/Ega741/arc-lint) (npm `arc-lint`,
+first published 2026-08-07) covers the same Solidity hazards with **solc AST
+analysis** rather than the pattern matching here — more precise, and including a
+contract-level rule that reasons across functions and inheritance chains. If you
+only need Solidity checks, look at it first.
+
+The two overlap on five hazards (prevrandao, the decimal mix, selfdestruct, WETH
+wrappers, zero-address sends). This package adds deploy-script rules, Foundry and
+Hardhat integration, and SARIF output; that one covers sub-second timestamp
+deltas, which this does not.

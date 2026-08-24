@@ -1,12 +1,71 @@
 {
-  "name": "arc-lint",
+  "name": "arc-evm-lint",
   "version": "0.1.0",
-  "description": "Flag Arc-incompatible Solidity and script patterns before you deploy",
+  "description": "Catch Arc-incompatible Solidity and script patterns before you deploy. Arc is EVM-compatible, so the differences that matter compile cleanly.",
   "type": "module",
-  "engines": { "node": ">=22.6" },
-  "bin": { "arc-lint": "./src/cli.ts" },
-  "exports": { ".": "./src/cli.ts" },
-  "scripts": { "test": "node --test 'test/*.test.ts'" },
-  "keywords": ["arc", "circle", "usdc", "stablecoin", "evm", "web3"],
-  "license": "MIT"
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "arc-evm-lint": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/engine.d.ts",
+      "default": "./dist/engine.js"
+    },
+    "./rules": {
+      "types": "./dist/rules.d.ts",
+      "default": "./dist/rules.js"
+    },
+    "./sarif": {
+      "types": "./dist/sarif.d.ts",
+      "default": "./dist/sarif.js"
+    },
+    "./github": {
+      "types": "./dist/github.d.ts",
+      "default": "./dist/github.js"
+    },
+    "./foundry": {
+      "types": "./dist/foundry.d.ts",
+      "default": "./dist/foundry.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "node build.mjs && tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build && npm test",
+    "test": "node --test 'test/*.test.ts'"
+  },
+  "keywords": [
+    "arc",
+    "circle",
+    "usdc",
+    "stablecoin",
+    "solidity",
+    "evm",
+    "linter",
+    "static-analysis",
+    "foundry",
+    "hardhat",
+    "sarif"
+  ],
+  "license": "MIT",
+  "main": "./dist/engine.js",
+  "types": "./dist/engine.d.ts",
+  "files": [
+    "dist",
+    "action.yml",
+    "README.md"
+  ],
+  "author": "Ilker Manap",
+  "homepage": "https://arctools.mynodes.xyz/arc-lint.html",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ilkermanap/arctools.git",
+    "directory": "packages/arc-lint"
+  },
+  "bugs": {
+    "url": "https://github.com/ilkermanap/arctools/issues"
+  }
 }

@@ -9,7 +9,7 @@ Four CLIs, a Hardhat plugin, two indexer adapters, and a GitHub Action — no
 dependencies, no build step. Node ≥ 22.6 runs the TypeScript directly.
 
 ```bash
-npm run arc-lint   -- contracts/          # catch Arc-incompatible code pre-deploy
+npx arc-evm-lint contracts/               # catch Arc-incompatible code pre-deploy
 npm run arc-index  -- scan --blocks 200   # index USDC without double-counting
 npm run arc-agents -- count               # read the ERC-8004 agent registry
 npm run serve                             # dev console at localhost:8787
@@ -94,12 +94,17 @@ Exit code is 1 on any error-severity finding (`--fail-on warning|never` to
 change that). Suppress a line with `// arc-lint-disable-next-line arc/rule-id`,
 or whole paths with `.arclintignore`.
 
+Published as **[`arc-evm-lint`](https://www.npmjs.com/package/arc-evm-lint)** —
+`arc-lint` on npm is [Egor Galkin's linter](https://github.com/Ega741/arc-lint),
+covered under [Prior art](#prior-art).
+
 **It plugs into what you already run:**
 
 ```bash
+npm install --save-dev arc-evm-lint
+npx arc-evm-lint --foundry                 # reads foundry.toml
+npx arc-evm-lint --sarif --out arc.sarif   # GitHub code scanning
 npx hardhat arc-lint                       # Hardhat 3 task
-node src/cli.ts --foundry                  # reads foundry.toml
-node src/cli.ts --sarif --out arc.sarif    # GitHub code scanning
 ```
 
 | Integration | |

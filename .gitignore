@@ -12,3 +12,8 @@ reports/
 # Comment these out to vendor the mirror into the repo instead.
 docs/
 docs-circle/
+
+# Build output for npm. The repo runs TypeScript directly; only published
+# packages need compiling, because Node refuses to strip types in node_modules.
+packages/*/dist/
+*.tgz
