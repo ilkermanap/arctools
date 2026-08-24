@@ -1,0 +1,31 @@
+{
+  "name": "hardhat-arc-lint",
+  "version": "0.1.0",
+  "description": "Hardhat 3 task that flags Arc-incompatible Solidity and script patterns",
+  "type": "module",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --test 'test/*.test.ts'"
+  },
+  "peerDependencies": {
+    "hardhat": "^3.0.0"
+  },
+  "keywords": [
+    "arc",
+    "circle",
+    "usdc",
+    "hardhat",
+    "hardhat-plugin",
+    "solidity",
+    "lint"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "hardhat": "^3.14.0"
+  }
+}

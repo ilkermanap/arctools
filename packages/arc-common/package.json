@@ -1,0 +1,13 @@
+{
+  "name": "arc-common",
+  "version": "0.1.0",
+  "description": "Zero-dependency keccak256, ABI codec, and JSON-RPC client for Arc",
+  "type": "module",
+  "engines": { "node": ">=22.6" },
+  "exports": {
+    "./rpc": "./rpc.ts",
+    "./abi": "./abi.ts",
+    "./keccak": "./keccak.ts"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,122 @@
+name: arc-lint
+description: >-
+  Flag Arc-incompatible Solidity and script patterns before you deploy. Arc is
+  EVM-compatible, so the differences that matter compile cleanly and never show
+  up in a local EVM.
+author: arcio-tools
+branding:
+  icon: alert-triangle
+  color: blue
+
+inputs:
+  paths:
+    description: Space-separated paths to lint. Ignored when foundry is true.
+    required: false
+    default: "."
+  foundry:
+    description: Read src/script/test/libs from foundry.toml instead of paths.
+    required: false
+    default: "false"
+  format:
+    description: >-
+      Output format. "github" annotates the diff and writes a step summary.
+      "sarif" writes a file for github/codeql-action/upload-sarif. "text" is the
+      plain terminal report.
+    required: false
+    default: "github"
+  sarif-file:
+    description: Where to write the SARIF report when format is sarif.
+    required: false
+    default: arc-lint.sarif
+  fail-on:
+    description: Fail the step on "error" (default), "warning", or "never".
+    required: false
+    default: error
+  ignore:
+    description: Newline-separated path patterns to skip; * is a wildcard.
+    required: false
+    default: ""
+  working-directory:
+    description: Directory to run in.
+    required: false
+    default: "."
+  node-version:
+    description: >-
+      Node version. arc-lint runs TypeScript directly, which needs Node 22.6+.
+    required: false
+    default: "22"
+
+outputs:
+  errors:
+    description: Number of error-severity findings.
+    value: ${{ steps.lint.outputs.errors }}
+  warnings:
+    description: Number of warning-severity findings.
+    value: ${{ steps.lint.outputs.warnings }}
+  findings:
+    description: Total number of findings.
+    value: ${{ steps.lint.outputs.findings }}
+  sarif-file:
+    description: Path to the SARIF report, when format is sarif.
+    value: ${{ steps.lint.outputs.sarif-file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Run arc-lint
+      id: lint
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        ARC_LINT_CLI: ${{ github.action_path }}/src/cli.ts
+      run: |
+        set -uo pipefail
+
+        args=()
+        if [ "${{ inputs.foundry }}" = "true" ]; then
+          args+=(--foundry)
+        else
+          # Word splitting is intended here: `paths` is a space-separated list.
+          read -r -a paths <<< "${{ inputs.paths }}"
+          args+=("${paths[@]}")
+        fi
+
+        while IFS= read -r pattern; do
+          [ -n "$pattern" ] && args+=(--ignore "$pattern")
+        done <<< "${{ inputs.ignore }}"
+
+        # Pass 1: exact counts for the step outputs, never failing the step.
+        node "$ARC_LINT_CLI" "${args[@]}" --json --fail-on never --out arc-lint.json
+        node --input-type=commonjs - <<'NODE' >> "$GITHUB_OUTPUT"
+        const { readFileSync } = require("node:fs");
+        const { findings } = JSON.parse(readFileSync("arc-lint.json", "utf8"));
+        const count = (s) => findings.filter((f) => f.severity === s).length;
+        console.log(`errors=${count("error")}`);
+        console.log(`warnings=${count("warning")}`);
+        console.log(`findings=${findings.length}`);
+        NODE
+
+        # Pass 2: the requested human-facing report. This run also decides the
+        # step's exit status, so --fail-on is applied exactly once.
+        case "${{ inputs.format }}" in
+          sarif)
+            echo "sarif-file=${{ inputs.sarif-file }}" >> "$GITHUB_OUTPUT"
+            exec node "$ARC_LINT_CLI" "${args[@]}" --sarif \
+              --fail-on "${{ inputs.fail-on }}" --out "${{ inputs.sarif-file }}"
+            ;;
+          github)
+            exec node "$ARC_LINT_CLI" "${args[@]}" --github --fail-on "${{ inputs.fail-on }}"
+            ;;
+          text)
+            exec node "$ARC_LINT_CLI" "${args[@]}" --fail-on "${{ inputs.fail-on }}"
+            ;;
+          *)
+            echo "arc-lint: unknown format '${{ inputs.format }}' (github, sarif, or text)" >&2
+            exit 2
+            ;;
+        esac

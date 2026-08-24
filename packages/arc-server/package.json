@@ -1,0 +1,10 @@
+{
+  "name": "arc-server",
+  "version": "0.1.0",
+  "description": "Local dev console for Arc: mirrored docs plus live chain data",
+  "type": "module",
+  "engines": { "node": ">=22.6" },
+  "bin": { "arc-server": "./src/server.ts" },
+  "scripts": { "test": "node --test 'test/*.test.ts'" },
+  "license": "MIT"
+}

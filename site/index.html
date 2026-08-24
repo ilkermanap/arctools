@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>arctools — developer tooling for Arc</title>
+<meta name="description" content="Arc compiles your Ethereum contracts unchanged. The places it diverges are invisible to the compiler and to anvil. These tools catch them.">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>◑</text></svg>">
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="index.html">arctools <span>for Arc</span></a>
+    <nav class="site-nav">
+      <a href="index.html" aria-current="page">Overview</a>
+      <a href="arc-lint.html">arc-lint</a>
+      <a href="arc-index.html">arc-index</a>
+      <a href="arc-agents.html">arc-agents</a>
+      <a href="arc-server.html">console</a>
+      <a href="notes.html">Arc notes</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Unofficial developer tooling</p>
+    <h1>Arc compiles your Ethereum contracts unchanged. That is the problem.</h1>
+    <p class="lede">
+      Arc is Circle's stablecoin-native Layer&nbsp;1, where <strong>USDC is the gas
+      token</strong>. It is EVM-compatible, so your contracts deploy without edits — and
+      the handful of places where its semantics differ are invisible to the compiler,
+      invisible to <code>anvil</code>, and expensive in production.
+    </p>
+    <div class="actions">
+      <a class="btn" href="arc-lint.html">Start with arc-lint</a>
+      <a class="btn ghost" href="notes.html">Read the research</a>
+    </div>
+  </div>
+</section>
+
+<main class="wrap">
+
+  <div class="stats">
+    <div class="stat"><div class="n">14</div><div class="l">compatibility rules, each citing the doc page that justifies it</div></div>
+    <div class="stat"><div class="n">+67.5%</div><div class="l">phantom rows a topic-only USDC indexer creates, measured live</div></div>
+    <div class="stat"><div class="n">885,423</div><div class="l">ERC-8004 agents, enumerated in 41 <code>eth_call</code>s</div></div>
+    <div class="stat"><div class="n">106</div><div class="l">tests, all offline — nothing to install to run them</div></div>
+  </div>
+
+  <h2 id="hazards">What actually goes wrong</h2>
+  <p>
+    Every row below is a real divergence, taken from Arc's own documentation and then
+    confirmed against a live testnet RPC. None of them produce a compiler warning.
+  </p>
+
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Hazard</th><th>What breaks</th><th>Caught by</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Native USDC is <strong>18 decimals</strong>, the ERC-20 view is <strong>6</strong> — one balance, two scales</td>
+        <td>A <code>1e18</code> amount passed to <code>transfer()</code> is 10<sup>12</sup>&times; too large</td>
+        <td><a href="arc-lint.html">arc-lint</a></td>
+      </tr>
+      <tr>
+        <td><code>block.prevrandao</code> is hardcoded to <code>0</code></td>
+        <td>Lotteries, shuffles, and commit-reveal schemes become fully predictable</td>
+        <td><a href="arc-lint.html">arc-lint</a></td>
+      </tr>
+      <tr>
+        <td>Native transfer to <code>address(0)</code> reverts</td>
+        <td>Burn-by-sending patterns that pass on mainnet fail at runtime</td>
+        <td><a href="arc-lint.html">arc-lint</a></td>
+      </tr>
+      <tr>
+        <td>One <code>transfer()</code> emits <strong>two</strong> <code>Transfer</code> logs, from two emitters</td>
+        <td>Indexers double-count: <strong>+67.5%</strong> phantom rows, <strong>+83.1%</strong> inflated volume</td>
+        <td><a href="arc-index.html">arc-index</a></td>
+      </tr>
+      <tr>
+        <td>Self-transfers log on the ERC-20 side only</td>
+        <td>Indexers invent balance changes for movements that moved nothing</td>
+        <td><a href="arc-index.html">arc-index</a></td>
+      </tr>
+      <tr>
+        <td><code>AgentIdentity</code> has no <code>totalSupply()</code>, and its logs predate any cheap window</td>
+        <td>No way to enumerate the agents already registered on the chain</td>
+        <td><a href="arc-agents.html">arc-agents</a></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note warn">
+    <span class="t">Local EVMs cannot reproduce any of this</span>
+    <p>
+      <code>anvil</code>, <code>hardhat node</code>, and <code>ganache</code> run a stock
+      EVM. The native-coin precompiles, the EIP-7708 <code>Transfer</code> events, and
+      USDC blocklist enforcement only surface against a real Arc RPC — so a green local
+      test suite tells you nothing about these.
+    </p>
+  </div>
+
+  <h2 id="tools">Three tools</h2>
+  <p class="lead-in">Each solves one of the hazards above. All zero-dependency, no build step.</p>
+
+  <div class="cards">
+    <a class="card" href="arc-lint.html">
+      <h3>arc-lint &rarr;</h3>
+      <p>
+        Static analysis for the divergences the compiler cannot see. 14 rules across
+        Solidity and deploy scripts, every finding linking to the doc page behind it.
+      </p>
+      <p><span class="pill">Foundry</span> <span class="pill">Hardhat 3</span> <span class="pill">GitHub Action</span></p>
+    </a>
+    <a class="card" href="arc-index.html">
+      <h3>arc-index &rarr;</h3>
+      <p>
+        Dual-emitter-safe USDC indexing, and a <code>reconcile</code> command that proves
+        an index against <code>eth_getBalance</code> rather than trusting it.
+      </p>
+      <p><span class="pill">CLI</span> <span class="pill">Ponder</span> <span class="pill">Subsquid</span></p>
+    </a>
+    <a class="card" href="arc-agents.html">
+      <h3>arc-agents &rarr;</h3>
+      <p>
+        Reads the ERC-8004 identity and reputation registries — the substrate every
+        agentic application on Arc has to read.
+      </p>
+      <p><span class="pill">CLI</span> <span class="pill">ERC-8004</span></p>
+    </a>
+  </div>
+
+  <h2 id="why">Why tooling, and not a tenth sample app</h2>
+  <p>
+    Circle already ships nine sample applications covering commerce, peer-to-peer
+    payments, escrow, nanopayments, multichain wallets, treasury, stablecoin FX,
+    lend/borrow, and prediction markets. Building a tenth is not where the gap is.
+  </p>
+  <p>
+    The gap is that <strong>correct code looks wrong and wrong code looks fine</strong>,
+    and nothing in the toolchain tells the difference. Anyone building stablecoin FX or a
+    lending market on Arc hits the decimal trap and the dual-emitter problem on day one.
+    These three sit underneath those applications rather than beside them.
+  </p>
+
+  <h2 id="verified">Verified, not assumed</h2>
+  <p>
+    Every claim on this site was read from Arc's documentation and then checked against
+    <code>https://rpc.testnet.arc.io</code>. Where the docs and the chain disagreed, the
+    chain won and the notes say so.
+  </p>
+  <p>
+    That process also turned up <strong>five gaps in Arc's own documentation</strong> —
+    including an undocumented 100,000-block <code>eth_getLogs</code> cap and a missing
+    ERC-8004 read ABI. They are written up, with reproduction, in the
+    <a href="notes.html">Arc notes</a>.
+  </p>
+
+  <h2 id="start">Getting started</h2>
+  <pre><code><span class="c"># Node 22.6+ runs the TypeScript directly — nothing to install</span>
+npm run arc-lint   -- contracts/          <span class="c"># catch hazards pre-deploy</span>
+npm run arc-index  -- scan --blocks 200   <span class="c"># index USDC without double-counting</span>
+npm run arc-agents -- count               <span class="c"># read the ERC-8004 registry</span>
+npm run serve                             <span class="c"># dev console on localhost:8787</span>
+npm test                                  <span class="c"># 106 tests, all offline</span></code></pre>
+
+  <p>
+    There is also a <a href="arc-server.html">local dev console</a> that puts the live
+    chain data, a paste-and-lint box, and full-text search over 636 mirrored
+    documentation pages behind one command.
+  </p>
+
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <span>
+      Community tooling. Not affiliated with or endorsed by Circle —
+      <a href="https://arc.io">arc.io</a> and
+      <a href="https://docs.arc.io">docs.arc.io</a> are Circle's.
+    </span>
+    <span class="right">Arc Testnet · chain 5042002</span>
+  </div>
+</footer>
+
+</body>
+</html>

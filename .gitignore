@@ -1,0 +1,14 @@
+node_modules/
+*.log
+
+# arc-lint reports
+arc-lint.json
+arc-lint.sarif
+reports/
+
+# Mirrored upstream documentation. Regenerate with:
+#   npm run mirror-docs
+#   npm run mirror-docs -- --site circle
+# Comment these out to vendor the mirror into the repo instead.
+docs/
+docs-circle/

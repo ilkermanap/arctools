@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>arc-lint — catch Arc-incompatible code before you deploy</title>
+<meta name="description" content="Static analysis for Arc's protocol-level divergences from Ethereum. 14 rules across Solidity and deploy scripts, with Foundry, Hardhat 3, and GitHub Actions integration.">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>◑</text></svg>">
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="index.html">arctools <span>for Arc</span></a>
+    <nav class="site-nav">
+      <a href="index.html">Overview</a>
+      <a href="arc-lint.html" aria-current="page">arc-lint</a>
+      <a href="arc-index.html">arc-index</a>
+      <a href="arc-agents.html">arc-agents</a>
+      <a href="arc-server.html">console</a>
+      <a href="notes.html">Arc notes</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow">arc-lint</p>
+    <h1>The differences that matter compile cleanly.</h1>
+    <p class="lede">
+      Arc is EVM-compatible, so existing contracts deploy unchanged. That is exactly the
+      risk: the places where its semantics diverge produce no compiler warning and no
+      local test failure. <code>arc-lint</code> catches them by reading source.
+    </p>
+    <div class="actions">
+      <a class="btn" href="#rules">See the 14 rules</a>
+      <a class="btn ghost" href="#ci">Wire it into CI</a>
+    </div>
+  </div>
+</section>
+
+<main class="wrap">
+
+  <h2 id="use">Using it</h2>
+  <pre><code>node src/cli.ts contracts/ scripts/
+node src/cli.ts --rules                         <span class="c"># list every rule</span>
+node src/cli.ts --foundry                       <span class="c"># read foundry.toml</span>
+node src/cli.ts --sarif --out arc-lint.sarif    <span class="c"># GitHub code scanning</span>
+node src/cli.ts --github                        <span class="c"># PR annotations</span></code></pre>
+
+  <pre><code>Bad.sol
+  17:59   <span class="e">error</span>   block.prevrandao is always 0 on Arc  arc/no-prevrandao
+          │ uint256 seed = uint256(keccak256(abi.encodePacked(block.prevrandao, …)));
+          → Arc has no beacon-chain RANDAO mix, so block.prevrandao is hardcoded
+            to 0. Any contract deriving randomness from it is fully predictable.
+            Use an oracle or VRF instead.
+          https://docs.arc.io/arc/references/evm-differences
+
+<span class="e">9 error</span> · <span class="w">3 warning</span> across 2 of 3 file(s)</code></pre>
+
+  <p>
+    Exit code is 1 on any error-severity finding, so it drops into CI as-is. Use
+    <code>--fail-on warning</code> to tighten that, or <code>--fail-on never</code> to
+    report without blocking.
+  </p>
+
+  <h2 id="rules">The rules</h2>
+  <p class="lead-in">
+    Each maps to a documented protocol-level divergence, and carries the doc reference
+    that justifies it — so a finding can always be traced back to the spec.
+  </p>
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Rule</th><th>Severity</th><th>Catches</th></tr></thead>
+    <tbody>
+      <tr><td><code>arc/decimals-mix</code></td><td class="sev-error">error</td><td>An 18-decimal literal in a file that also uses the 6-decimal ERC-20 USDC interface</td></tr>
+      <tr><td><code>arc/no-prevrandao</code></td><td class="sev-error">error</td><td><code>block.prevrandao</code> / <code>block.difficulty</code>, both hardcoded to <code>0</code></td></tr>
+      <tr><td><code>arc/no-assembly-prevrandao</code></td><td class="sev-error">error</td><td>The same read from inline assembly</td></tr>
+      <tr><td><code>arc/no-blob-opcodes</code></td><td class="sev-error">error</td><td><code>blobhash</code>, <code>blobbasefee</code> — blob transactions are rejected</td></tr>
+      <tr><td><code>arc/no-beacon-roots</code></td><td class="sev-error">error</td><td>EIP-4788 beacon roots; the contract is not deployed on Arc</td></tr>
+      <tr><td><code>arc/burn-to-zero-address</code></td><td class="sev-error">error</td><td>Native value sent to <code>address(0)</code>, which reverts</td></tr>
+      <tr><td><code>arc/gas-fee-floor</code></td><td class="sev-error">error</td><td><code>maxFeePerGas</code> below Arc's 20 Gwei floor</td></tr>
+      <tr><td><code>arc/wrong-usdc-decimals</code></td><td class="sev-error">error</td><td><code>parseEther</code> / <code>parseUnits(x, 18)</code> on a 6-decimal ERC-20 call</td></tr>
+      <tr><td><code>arc/selfdestruct-value-rules</code></td><td class="sev-warning">warning</td><td><code>SELFDESTRUCT</code> under Arc's extra native-value rules</td></tr>
+      <tr><td><code>arc/balanceof-zero-is-not-empty</code></td><td class="sev-warning">warning</td><td><code>balanceOf(x) == 0</code>, which truncation makes unreliable</td></tr>
+      <tr><td><code>arc/ether-unit-is-usdc</code></td><td class="sev-warning">warning</td><td>The <code>ether</code> unit, which denominates USDC here</td></tr>
+      <tr><td><code>arc/hardcoded-eth-rpc</code></td><td class="sev-warning">warning</td><td>Localhost RPCs that cannot reproduce Arc semantics</td></tr>
+      <tr><td><code>arc/unnecessary-weth-wrapper</code></td><td class="sev-info">info</td><td>A wrap/unwrap layer Arc does not need</td></tr>
+      <tr><td><code>arc/prefer-multicall3from</code></td><td class="sev-info">info</td><td><code>Multicall3</code>, where Arc's <code>Multicall3From</code> preserves <code>msg.sender</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="integrations">It runs where you already work</h2>
+
+  <h3>Foundry</h3>
+  <p>
+    Foundry has no plugin API, so integration means being a well-behaved CLI: read the
+    same config <code>forge</code> reads, lint exactly what it compiles, and skip the
+    dependency tree in <code>libs</code>.
+  </p>
+  <pre><code>node src/cli.ts --foundry</code></pre>
+  <p>
+    <code>--foundry</code> reads <code>src</code>, <code>script</code>, <code>test</code>,
+    and <code>libs</code> from <code>foundry.toml</code>, honouring
+    <code>FOUNDRY_PROFILE</code>.
+  </p>
+
+  <h3>Hardhat 3</h3>
+  <pre><code><span class="c">// hardhat.config.ts</span>
+import arcLint from "hardhat-arc-lint";
+
+export default { plugins: [arcLint] };</code></pre>
+  <pre><code>npx hardhat arc-lint
+npx hardhat arc-lint --format sarif --out arc-lint.sarif
+npx hardhat arc-lint --fail-on warning</code></pre>
+  <p>
+    The task reads Hardhat's own <code>config.paths</code> rather than guessing directory
+    names. Hardhat&nbsp;3's <code>paths</code> has <strong>no entry for deploy
+    scripts</strong> — and the script-language rules fire almost exclusively there — so
+    <code>scripts/</code>, <code>ignition/modules/</code>, and <code>deploy/</code> are
+    added when they exist, and the task says when it did that.
+  </p>
+  <p>
+    A lint failure throws <code>HardhatPluginError</code>, so it prints as a plugin
+    result rather than as a Hardhat crash with a stack trace and a bug-report link.
+  </p>
+
+  <h3 id="ci">GitHub Actions</h3>
+  <pre><code>- uses: your-org/arcio-tools/packages/arc-lint@main
+  with:
+    foundry: "true"
+    format: sarif        <span class="c"># or github (default) / text</span>
+    fail-on: error</code></pre>
+  <p>
+    <code>format: github</code> annotates the pull request diff inline and writes a step
+    summary grouped by rule. <code>format: sarif</code> emits a SARIF 2.1.0 report for
+    <code>github/codeql-action/upload-sarif</code>, so findings land in the Security tab
+    as code scanning alerts. Step outputs expose <code>errors</code>,
+    <code>warnings</code>, <code>findings</code>, and <code>sarif-file</code>.
+  </p>
+
+  <h2 id="suppression">Suppression</h2>
+  <pre><code><span class="c">// arc-lint-disable-next-line arc/decimals-mix</span>
+uint256 amount = 1e18;</code></pre>
+  <p>
+    Omit the rule id to mute every rule on that line, or use
+    <code>arc-lint-disable-line</code> for the current one. Whole paths go in
+    <code>.arclintignore</code>; a pattern containing <code>*</code> is anchored to the
+    full path, one without matches as a substring.
+  </p>
+
+  <h2 id="how">How it works, and what it cannot do</h2>
+  <p>
+    Comments and string literals are blanked <em>in place</em> — preserving byte offsets,
+    so line and column stay exact — and rules match against that. Solidity rules see
+    strings blanked, which keeps revert messages from tripping them. Script rules see
+    strings intact, because the values they check (<code>parseGwei("5")</code>, RPC URLs)
+    live inside strings. String literals are always parsed even when kept, so a URL
+    containing <code>//</code> is never mistaken for a comment.
+  </p>
+  <div class="note">
+    <span class="t">Regex, not AST — and that has a cost</span>
+    <p>
+      Rules match against comment-stripped source rather than a compiled AST. That keeps
+      <code>arc-lint</code> compiler-free and instant, but it is coarse:
+      <code>arc/decimals-mix</code> flags every <code>1e18</code> in a file that touches
+      <code>IERC20</code>, instead of following one value across assignments. AST rules
+      via <code>solc --standard-json</code> are the next step.
+    </p>
+  </div>
+
+  <h2 id="tests">Tests</h2>
+  <p>
+    33 tests, fully offline. <code>Bad.sol</code> is expected to trip ten rules exactly
+    once each and <code>Good.sol</code> must stay clean; the rest pin the SARIF and
+    annotation encodings and the <code>foundry.toml</code> reader.
+  </p>
+
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <span>
+      Community tooling. Not affiliated with or endorsed by Circle —
+      <a href="https://arc.io">arc.io</a> and
+      <a href="https://docs.arc.io">docs.arc.io</a> are Circle's.
+    </span>
+    <span class="right">Arc Testnet · chain 5042002</span>
+  </div>
+</footer>
+
+</body>
+</html>

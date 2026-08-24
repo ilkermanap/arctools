@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>arc-index — index Arc USDC without double-counting</title>
+<meta name="description" content="Arc logs every USDC movement twice when it goes through the ERC-20 interface. arc-index deduplicates it, proves the result against eth_getBalance, and ships adapters for Ponder and Subsquid.">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>◑</text></svg>">
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="index.html">arctools <span>for Arc</span></a>
+    <nav class="site-nav">
+      <a href="index.html">Overview</a>
+      <a href="arc-lint.html">arc-lint</a>
+      <a href="arc-index.html" aria-current="page">arc-index</a>
+      <a href="arc-agents.html">arc-agents</a>
+      <a href="arc-server.html">console</a>
+      <a href="notes.html">Arc notes</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow">arc-index</p>
+    <h1>One transfer. Two logs. Every indexer template gets this wrong.</h1>
+    <p class="lede">
+      Arc emits a <code>Transfer</code> log from a native system emitter for every USDC
+      movement, and <em>again</em> from the ERC-20 contract when the movement went through
+      the token interface. Both use the standard topic — so subscribing by topic
+      double-counts.
+    </p>
+    <div class="actions">
+      <a class="btn" href="#numbers">See the measurement</a>
+      <a class="btn ghost" href="#adapters">Ponder &amp; Subsquid</a>
+    </div>
+  </div>
+</section>
+
+<main class="wrap">
+
+  <h2 id="two">Two emitters, one balance</h2>
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Source</th><th>Emitter</th><th>Decimals</th><th>Covers</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Native system (EIP-7708)</td>
+        <td><code>0xffff…fffe</code></td>
+        <td>18</td>
+        <td><strong>Every</strong> real movement</td>
+      </tr>
+      <tr>
+        <td>ERC-20 <code>NativeFiatToken</code></td>
+        <td><code>0x3600…0000</code></td>
+        <td>6</td>
+        <td>ERC-20 interface calls only</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>
+    Both use topic0
+    <code>0xddf252ad…3b3ef</code>. A plain native send emits one log; an ERC-20
+    <code>transfer()</code> emits two. Match on the emitter address, and never mix the
+    6-decimal and 18-decimal values.
+  </p>
+
+  <h2 id="numbers">What it costs to get wrong</h2>
+  <p class="lead-in">Measured over 150 consecutive blocks of live Arc Testnet traffic.</p>
+
+  <pre><code>  raw logs
+    native emitter (18 dec)   1589
+    ERC-20 emitter (6 dec)    1073
+
+  canonical movements         1589
+    initiated via ERC-20      1066  <span class="c">(logged twice by the chain)</span>
+    plain native sends        523   <span class="c">(logged once)</span>
+    sub-6-decimal dust        57    <span class="c">(invisible to balanceOf)</span>
+
+  ERC-20 logs the native emitter deliberately omits
+    self-transfers            7     <span class="c">(from == to, no balance change)</span>
+    zero-value                0
+
+  what a naive indexer gets wrong
+    transfer rows             <span class="e">2662 vs 1589 real  (+67.5% phantom rows)</span>
+    volume, no dedup          <span class="e">11507.064102 USDC  (+83.1%)</span>
+    volume, canonical         6284.280334 USDC
+
+  <span class="g">✓ every value-moving ERC-20 log paired with its native log</span></code></pre>
+
+  <p>
+    The volume figure is the realistic failure: an indexer that normalises each emitter's
+    decimals <em>correctly</em> but never deduplicates still overstates flow by 83%.
+  </p>
+
+  <h2 id="exceptions">The exceptions that look like bugs</h2>
+  <p>
+    The native emitter records every movement — with two documented omissions, both of
+    which the ERC-20 contract logs anyway because the token standard requires it:
+  </p>
+  <ul>
+    <li><strong>Zero-value transfers</strong> emit no native log.</li>
+    <li><strong>Self-transfers</strong> (<code>from == to</code>) emit no native log.</li>
+  </ul>
+  <p>
+    Seven self-transfers appeared in that 150-block window. An indexer trusting the
+    ERC-20 stream alone invents balance changes for every one of them. <code>arc-index</code>
+    classifies them as expected rather than flagging them, and reserves
+    <strong>anomalies</strong> for what should be impossible: a value-moving ERC-20 log
+    with no native counterpart.
+  </p>
+
+  <h2 id="reconcile">Proving an index, not trusting it</h2>
+  <pre><code>node src/cli.ts reconcile --address 0x… --blocks 60</code></pre>
+  <pre><code>  balance before   3065983.987369 USDC
+  balance after    3065987.839446 USDC
+  actual delta     3.852077 USDC   <span class="c">(eth_getBalance)</span>
+  indexed delta    3.852077 USDC   <span class="c">(6 movements)</span>
+  residual         0 USDC
+
+  <span class="g">✓ exact: every wei of movement is accounted for by logs</span></code></pre>
+  <p>
+    Replay every indexed movement for an address and compare against the node. Three
+    outcomes, and the middle one matters:
+  </p>
+  <ul>
+    <li><strong>exact</strong> — every wei is explained by logs.</li>
+    <li>
+      <strong>fees-only</strong> — a negative residual. EIP-7708 does not emit a
+      <code>Transfer</code> for fee payment, so this is the expected signature of a
+      <em>correct</em> index on a fee payer, not a bug.
+    </li>
+    <li><strong>mismatch</strong> — value arrived that no log explains. The index is incomplete.</li>
+  </ul>
+
+  <h2 id="adapters">The rule ships where you build indexers</h2>
+  <p>
+    The dedup logic is a pure function over normalised logs, with no RPC or framework
+    dependency, so all three consumers agree on what a movement is.
+  </p>
+
+  <h3>Subsquid (SQD)</h3>
+  <p>
+    A batch processor is the natural fit: SQD hands you whole blocks, so both streams for
+    a transaction are always in the same batch and the rule applies with no buffering.
+  </p>
+  <pre><code>const processor = new EvmBatchProcessor()
+  .setRpcEndpoint(ARC_RPC_SETTINGS)
+  .setFields({ log: REQUIRED_LOG_FIELDS })
+  .addLog(arcUsdcLogRequest());          <span class="c">// one request, both emitters</span>
+
+processor.run(new TypeormDatabase(), async (ctx) =&gt; {
+  const result = movementsFromBatch(ctx.blocks);
+  await ctx.store.insert(toRows(result).map((r) =&gt; new UsdcMovement(r)));
+});</code></pre>
+  <div class="note warn">
+    <span class="t">SQD publishes no gateway for Arc</span>
+    <p>
+      94 EVM networks are listed as of August 2026, none of them Arc. Ingestion is
+      RPC-only — do not call <code>setGateway</code>, there is nothing to point it at.
+    </p>
+  </div>
+
+  <h3>Ponder</h3>
+  <p>
+    Ponder is event-at-a-time, so there is no batch in which to pair the two logs. The fix
+    follows from what the chain guarantees:
+  </p>
+  <ol>
+    <li>The native emitter logs <strong>every</strong> real movement — indexing it alone already yields each movement exactly once.</li>
+    <li>The ERC-20 emitter adds <strong>no</strong> movements, only the knowledge that one was ERC-20-initiated.</li>
+    <li>Arc emits the native log <strong>first</strong>, before any other log in the transaction.</li>
+  </ol>
+  <p>
+    So: native events create every row, and ERC-20 events <em>update</em> the row they
+    duplicate. Point 3 is what makes that safe — the row always exists by the time the
+    marker arrives, which makes double-counting structurally impossible rather than
+    merely avoided.
+  </p>
+  <p>
+    Matching uses <code>(txHash, from, to, value × 10¹²)</code> ordered by
+    <code>logIndex</code>, so two identical transfers in one transaction pair up in log
+    order, exactly as the batch dedup does.
+  </p>
+
+  <h2 id="limits">Operational limits worth knowing</h2>
+  <ul>
+    <li>
+      <code>eth_getLogs</code> is capped at <strong>100,000 blocks</strong> on Arc's
+      public RPC. This is not documented; it surfaces as error <code>-32602</code>.
+      Requests are chunked and split recursively on failure.
+    </li>
+    <li>
+      The RPC sits behind Cloudflare and returns <strong>429 on bursts</strong>, even at
+      concurrency 4. The shared client rate-limits itself and backs off adaptively;
+      override with <code>ARC_RPC_RPS</code> (default 12).
+    </li>
+    <li>
+      Before the Zero5 hard fork, testnet emitted <code>NativeCoin*</code> events from a
+      different precompile. Backfills crossing that boundary need both shapes.
+    </li>
+  </ul>
+
+  <h2 id="tests">Tests</h2>
+  <p>
+    29 tests across the core and both adapters, all against canned logs with no network:
+    the pairing rule, one-to-one log consumption, dust truncation, the self-transfer and
+    zero-value exceptions, and that net deltas sum to zero.
+  </p>
+
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <span>
+      Community tooling. Not affiliated with or endorsed by Circle —
+      <a href="https://arc.io">arc.io</a> and
+      <a href="https://docs.arc.io">docs.arc.io</a> are Circle's.
+    </span>
+    <span class="right">Arc Testnet · chain 5042002</span>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Arc USDC movements: one row per real balance change.
+#
+# `value` is the authoritative 18-decimal native amount. `value6` is what the
+# ERC-20 interface shows for the same movement, truncated — store both so a
+# consumer never has to guess which scale a number is in.
+type UsdcMovement @entity {
+  "txHash-logIndex of the authoritative native log"
+  id: ID!
+  blockNumber: BigInt! @index
+  txHash: String! @index
+  logIndex: Int!
+  from: String! @index
+  to: String! @index
+  "18 decimals — the native system emitter's value"
+  value: BigInt!
+  "6 decimals — the ERC-20 view, truncated"
+  value6: BigInt!
+  "native = plain send (one log), erc20 = token call (the chain logged it twice)"
+  via: String! @index
+  "transfer, mint, or burn"
+  kind: String! @index
+  "value has precision below 6 decimals, so balanceOf cannot see it"
+  dust: Boolean!
+}

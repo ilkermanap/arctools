@@ -1,0 +1,13 @@
+{
+  "name": "arc-index-subsquid",
+  "version": "0.1.0",
+  "description": "Dual-emitter-safe Arc USDC indexing for Subsquid (SQD) batch processors",
+  "type": "module",
+  "engines": { "node": ">=22.6" },
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "test": "node --test 'test/*.test.ts'" },
+  "peerDependencies": { "@subsquid/evm-processor": ">=1.30.0" },
+  "peerDependenciesMeta": { "@subsquid/evm-processor": { "optional": true } },
+  "keywords": ["arc", "circle", "usdc", "subsquid", "sqd", "indexer"],
+  "license": "MIT"
+}

@@ -1,0 +1,47 @@
+# Lint this repo's own contracts and scripts for Arc compatibility, and publish
+# the findings to the Security tab.
+name: arc-lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  annotate:
+    name: Annotate the diff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./packages/arc-lint
+        with:
+          paths: packages
+          format: github
+          fail-on: error
+
+  code-scanning:
+    name: Upload to code scanning
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - id: arc-lint
+        uses: ./packages/arc-lint
+        with:
+          paths: packages
+          format: sarif
+          # Let the upload happen even when findings exist; the alerts are the point.
+          fail-on: never
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.arc-lint.outputs.sarif-file }}
+          category: arc-lint
+      - name: Summarise
+        run: |
+          echo "errors=${{ steps.arc-lint.outputs.errors }}"
+          echo "warnings=${{ steps.arc-lint.outputs.warnings }}"

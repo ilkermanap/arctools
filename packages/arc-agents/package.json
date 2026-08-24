@@ -1,0 +1,12 @@
+{
+  "name": "arc-agents",
+  "version": "0.1.0",
+  "description": "Read the ERC-8004 agent identity and reputation registries on Arc",
+  "type": "module",
+  "engines": { "node": ">=22.6" },
+  "bin": { "arc-agents": "./src/cli.ts" },
+  "exports": { ".": "./src/cli.ts" },
+  "scripts": { "test": "node --test 'test/*.test.ts'" },
+  "keywords": ["arc", "circle", "usdc", "stablecoin", "evm", "web3"],
+  "license": "MIT"
+}

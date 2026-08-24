@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Arc notes — verified chain facts, hazards, and documentation gaps</title>
+<meta name="description" content="Everything read from Arc's docs and then checked against a live testnet RPC. Where the docs and the chain disagreed, the chain won.">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>◑</text></svg>">
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="index.html">arctools <span>for Arc</span></a>
+    <nav class="site-nav">
+      <a href="index.html">Overview</a>
+      <a href="arc-lint.html">arc-lint</a>
+      <a href="arc-index.html">arc-index</a>
+      <a href="arc-agents.html">arc-agents</a>
+      <a href="arc-server.html">console</a>
+      <a href="notes.html" aria-current="page">Arc notes</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Research</p>
+    <h1>Read the docs. Then ask the chain.</h1>
+    <p class="lede">
+      Everything below was taken from Arc's own documentation and then checked against
+      <code>https://rpc.testnet.arc.io</code>. Where the two disagreed, the chain won and
+      the note says so.
+    </p>
+  </div>
+</section>
+
+<main class="wrap">
+
+  <h2 id="network">Network facts</h2>
+  <div class="table-wrap">
+  <table>
+    <tbody>
+      <tr><td>Chain ID</td><td><code>5042002</code> (<code>eth_chainId</code> → <code>0x4cef52</code>)</td></tr>
+      <tr><td>RPC</td><td><code>https://rpc.testnet.arc.io</code></td></tr>
+      <tr><td>Explorer</td><td><a href="https://testnet.arcscan.app">testnet.arcscan.app</a></td></tr>
+      <tr><td>Faucet</td><td><a href="https://faucet.circle.com">faucet.circle.com</a></td></tr>
+      <tr><td>Gas price observed</td><td>21 Gwei (protocol floor 20, ceiling 20,000)</td></tr>
+      <tr><td>Base fee target</td><td>~$0.01 per transaction, EIP-1559 + EWMA smoothing</td></tr>
+      <tr><td>Throughput</td><td>30M gas/block, ~0.5 s blocks</td></tr>
+      <tr><td><code>eth_getLogs</code> range cap</td><td><strong>100,000 blocks</strong> — undocumented; found by hitting <code>-32602</code></td></tr>
+      <tr><td>Rate limiting</td><td>Cloudflare fronts the RPC and returns <strong>429 on bursts</strong>, even at concurrency 4</td></tr>
+      <tr><td>Mainnet</td><td>Announced for 16 September 2026; testnet only today</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="decimals">The decimal trap</h2>
+  <p>This is the single most dangerous thing about building on Arc.</p>
+  <p>
+    Native USDC and the ERC-20 USDC interface are <strong>one balance with two
+    views</strong>:
+  </p>
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Interface</th><th>Address</th><th>Decimals</th><th>Used for</th></tr></thead>
+    <tbody>
+      <tr><td>Native</td><td>—</td><td><strong>18</strong></td><td>Gas accounting, native sends, <code>msg.value</code>, <code>address.balance</code></td></tr>
+      <tr><td>ERC-20</td><td><code>0x3600…0000</code></td><td><strong>6</strong></td><td><code>transfer</code>, <code>approve</code>, <code>allowance</code>, <code>balanceOf</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Verified on chain: <code>decimals()</code> → <code>6</code>, <code>symbol()</code> → <code>USDC</code>.</p>
+
+  <ul>
+    <li><code>USDC.balanceOf(a)</code> and <code>a.balance</code> describe the same money at different scales. Mixing them raw is a 10<sup>12</sup> error.</li>
+    <li>The 6-decimal view <strong>truncates</strong>. A native balance of <code>0.0000001</code> USDC reads as <code>0</code> — so <code>balanceOf(x) == 0</code> does not mean the account is empty.</li>
+    <li>No WETH-style wrapper is needed: native USDC already satisfies <code>IERC20</code>.</li>
+    <li>Solidity's <code>ether</code> unit is just <code>1e18</code>, which on Arc means <strong>1 USDC</strong>.</li>
+  </ul>
+
+  <h2 id="divergences">Protocol divergences from Ethereum</h2>
+  <p class="lead-in">Compared against Ethereum at the Osaka hard fork, Arc's baseline.</p>
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Behaviour</th><th>Ethereum</th><th>Arc</th></tr></thead>
+    <tbody>
+      <tr><td><code>PREVRANDAO</code> / <code>block.difficulty</code></td><td>RANDAO mix</td><td>Always <code>0</code> — no onchain randomness</td></tr>
+      <tr><td><code>SELFDESTRUCT</code></td><td>EIP-6780</td><td>EIP-6780 + native value rules; emits a <code>Transfer</code> log</td></tr>
+      <tr><td>Value <code>CALL</code> to a destructed account</td><td>Succeeds</td><td><strong>Reverts</strong> (forbidden burn)</td></tr>
+      <tr><td>Native transfer to <code>address(0)</code></td><td>Succeeds</td><td><strong>Reverts</strong> — USDC cannot be burned this way</td></tr>
+      <tr><td>EIP-4788 beacon roots</td><td>Functional</td><td>Contract omitted; reads return <code>0x</code></td></tr>
+      <tr><td>Blob txs (EIP-4844)</td><td>Supported</td><td>Rejected; <code>BLOBHASH</code>→0, <code>BLOBBASEFEE</code>→1</td></tr>
+      <tr><td>EIP-2935 block-hash history</td><td>Functional</td><td><strong>Functional</strong> — unlike 4788</td></tr>
+      <tr><td>EIP-7708 native <code>Transfer</code> logs</td><td>Not yet</td><td><strong>Shipped ahead of upstream</strong></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note warn">
+    <span class="t">None of this reproduces locally</span>
+    <p>
+      <code>anvil</code> and <code>hardhat node</code> run a stock EVM. The native-coin
+      precompiles, EIP-7708 <code>Transfer</code> events, and USDC blocklist enforcement
+      only surface against a real Arc RPC.
+    </p>
+  </div>
+
+  <h2 id="emitters">Two event streams for one movement</h2>
+  <p>
+    Both emitters use topic0 <code>0xddf252ad…3b3ef</code>, so filtering by topic alone
+    picks up both. Measured over 150 recent blocks: 1,589 native logs and 1,073 ERC-20
+    logs for <strong>1,589 real movements</strong>.
+  </p>
+  <p>Rules the native emitter follows, all confirmed on chain:</p>
+  <ul>
+    <li>The native log is emitted <strong>first</strong>, before other logs in the transaction.</li>
+    <li><strong>Zero-value transfers emit no log.</strong></li>
+    <li><strong>Self-transfers (<code>from == to</code>) emit no log</strong> — but the ERC-20 contract still emits one, per the token standard. Seven appeared in a 150-block window.</li>
+    <li>Mint is <code>Transfer(0x0, to, v)</code>; burn is <code>Transfer(from, 0x0, v)</code>.</li>
+    <li><strong>Gas fees are not logged</strong>, so replaying logs under-counts a fee payer's outflow. That residual is the expected signature of a correct index.</li>
+  </ul>
+  <p>
+    Before the Zero5 hard fork, testnet emitted <code>NativeCoin*</code> events from
+    <code>0x1800…0000</code> instead. Backfills crossing that boundary need both shapes.
+  </p>
+
+  <h2 id="addresses">Contract addresses</h2>
+  <p class="lead-in">Arc Testnet. All verified deployed.</p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Contract</th><th>Address</th></tr></thead>
+    <tbody>
+      <tr><td>USDC (ERC-20 view)</td><td><code>0x3600000000000000000000000000000000000000</code></td></tr>
+      <tr><td>Native system emitter (EIP-7708)</td><td><code>0xfffffffffffffffffffffffffffffffffffffffe</code></td></tr>
+      <tr><td>EURC</td><td><code>0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a</code></td></tr>
+      <tr><td>USYC</td><td><code>0xe9185F0c5F296Ed1797AaE4238D26CCaBEadb86C</code></td></tr>
+      <tr><td>CCTP TokenMessengerV2 (domain 26)</td><td><code>0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA</code></td></tr>
+      <tr><td>Gateway Wallet</td><td><code>0x0077777d7EBA4688BDeF3E311b846F25870A19B9</code></td></tr>
+      <tr><td>StableFX FxEscrow</td><td><code>0xd68256f4D69C6BbEcB873D8588AE0Dc6B8E22E10</code></td></tr>
+      <tr><td>Memo</td><td><code>0x5294E9927c3306DcBaDb03fe70b92e01cCede505</code></td></tr>
+      <tr><td>Multicall3From</td><td><code>0x522fAf9A91c41c443c66765030741e4AaCe147D0</code></td></tr>
+      <tr><td>ERC-8004 IdentityRegistry</td><td><code>0x8004A818BFB912233c491871b3d84c89A494BD9e</code></td></tr>
+      <tr><td>ERC-8004 ReputationRegistry</td><td><code>0x8004B663056A597Dffe9eCcC1965A193B7388713</code></td></tr>
+      <tr><td>ERC-8004 ValidationRegistry</td><td><code>0x8004Cb1BF31DAf7788923b405b754f57acEB4272</code></td></tr>
+      <tr><td>ERC-8183 AgenticCommerce</td><td><code>0x0747EEf0706327138c69792bF28Cd525089e4583</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>
+    <code>Multicall3From</code> is Arc-specific: it batches like Multicall3 but
+    <strong>preserves the original <code>msg.sender</code></strong> in each subcall. Memo
+    and Multicall3From must be in the call path for Circle's compliance screening to see
+    the memo.
+  </p>
+
+  <h2 id="gaps">Gaps found in Arc's documentation</h2>
+  <p>
+    These surfaced while building against the chain, and are worth contributing back:
+  </p>
+  <ol>
+    <li>The <code>eth_getLogs</code> 100,000-block cap is not documented.</li>
+    <li>Cloudflare rate limiting on the public RPC is not mentioned.</li>
+    <li>The ERC-8004 registry <strong>read</strong> ABI is absent — the tutorials cover writes only.</li>
+    <li><code>readFeedback</code>'s return tuple has no published layout.</li>
+    <li><code>AgentIdentity</code> has no <code>totalSupply()</code>, and nothing documents how to enumerate.</li>
+  </ol>
+
+  <h2 id="sources">Sources</h2>
+  <ul>
+    <li><a href="https://docs.arc.io/llms.txt">docs.arc.io/llms.txt</a> — full documentation index</li>
+    <li><a href="https://docs.arc.io/arc/references/evm-differences">EVM differences</a></li>
+    <li><a href="https://docs.arc.io/arc/references/usdc-system-events">USDC system events</a></li>
+    <li><a href="https://docs.arc.io/arc/references/gas-and-fees">Gas and fees</a></li>
+    <li><a href="https://docs.arc.io/arc/references/contract-addresses">Contract addresses</a></li>
+    <li><a href="https://docs.arc.io/build/agentic-economy">Agentic economy</a></li>
+  </ul>
+
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <span>
+      Community tooling. Not affiliated with or endorsed by Circle —
+      <a href="https://arc.io">arc.io</a> and
+      <a href="https://docs.arc.io">docs.arc.io</a> are Circle's.
+    </span>
+    <span class="right">Arc Testnet · chain 5042002</span>
+  </div>
+</footer>
+
+</body>
+</html>

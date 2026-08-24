@@ -1,0 +1,13 @@
+{
+  "name": "arc-index-ponder",
+  "version": "0.1.0",
+  "description": "Dual-emitter-safe Arc USDC indexing for Ponder",
+  "type": "module",
+  "engines": { "node": ">=22.6" },
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "test": "node --test 'test/*.test.ts'" },
+  "peerDependencies": { "ponder": ">=0.17.0" },
+  "peerDependenciesMeta": { "ponder": { "optional": true } },
+  "keywords": ["arc", "circle", "usdc", "ponder", "indexer"],
+  "license": "MIT"
+}

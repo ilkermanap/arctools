@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>arc-agents — read the ERC-8004 agent registry on Arc</title>
+<meta name="description" content="AgentIdentity has no totalSupply() and its logs predate any cheap window. arc-agents enumerates 885,423 registered agents in 41 eth_calls.">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>◑</text></svg>">
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="index.html">arctools <span>for Arc</span></a>
+    <nav class="site-nav">
+      <a href="index.html">Overview</a>
+      <a href="arc-lint.html">arc-lint</a>
+      <a href="arc-index.html">arc-index</a>
+      <a href="arc-agents.html" aria-current="page">arc-agents</a>
+      <a href="arc-server.html">console</a>
+      <a href="notes.html">Arc notes</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow">arc-agents</p>
+    <h1>885,423 agents are registered. Nothing lets you list them.</h1>
+    <p class="lede">
+      ERC-8004 identity and reputation are the substrate for Arc's agentic economy —
+      Circle's stated top grant priority — and every application in that space has to read
+      these registries. Neither of the two obvious ways to do it works.
+    </p>
+    <div class="actions">
+      <a class="btn" href="#enumerate">How enumeration works</a>
+      <a class="btn ghost" href="#reputation">Reputation</a>
+    </div>
+  </div>
+</section>
+
+<main class="wrap">
+
+  <h2 id="problem">Why this is hard</h2>
+
+  <div class="cards">
+    <div class="card">
+      <h3>No <code>totalSupply()</code></h3>
+      <p>
+        <code>AgentIdentity</code> is a plain ERC-721 — <code>supportsInterface(0x80ac58cd)</code>
+        is true — but it does <strong>not</strong> implement ERC721Enumerable. There is no
+        count to ask for.
+      </p>
+    </div>
+    <div class="card">
+      <h3>Logs are out of reach</h3>
+      <p>
+        Arc's RPC caps <code>eth_getLogs</code> at 100,000 blocks, so covering ~58M blocks
+        costs ~590 requests — and a 6M-block sweep finds <strong>zero</strong> registry
+        logs. Registration all predates any cheap window.
+      </p>
+    </div>
+  </div>
+
+  <h2 id="enumerate">Read state instead</h2>
+  <p>
+    Token ids are minted sequentially from <strong>0</strong>, and <code>ownerOf</code>
+    reverts past the end. That makes the registry size findable by exponential probe plus
+    binary search:
+  </p>
+
+  <pre><code>node src/cli.ts count</code></pre>
+  <pre><code>ERC-8004 AgentIdentity  0x8004A818BFB912233c491871b3d84c89A494BD9e
+
+  registered agents   885423
+  highest token id    885422
+  cost                <span class="g">41 eth_calls</span></code></pre>
+
+  <div class="stats">
+    <div class="stat"><div class="n">41</div><div class="l">eth_calls to find the registry size</div></div>
+    <div class="stat"><div class="n">~590</div><div class="l">eth_getLogs calls a full backfill would need</div></div>
+    <div class="stat"><div class="n">0</div><div class="l">registry logs in the last 6M blocks (~35 days)</div></div>
+  </div>
+
+  <h2 id="commands">Commands</h2>
+  <pre><code>node src/cli.ts count
+node src/cli.ts list --from 0 --limit 20 --resolve
+node src/cli.ts show 1 --resolve
+node src/cli.ts reputation 4 --max-clients 500</code></pre>
+  <p>
+    <code>--resolve</code> fetches the metadata document that <code>tokenURI</code> points
+    at, usually on IPFS. Resolution failure never fails a listing — one unreachable
+    gateway must not take down twenty rows. Many public gateways redirect to a per-CID
+    subdomain, which sandboxed and corporate networks refuse, so set
+    <code>ARC_IPFS_GATEWAY</code> or pass <code>--gateway</code> when the defaults are
+    blocked.
+  </p>
+
+  <h2 id="reputation">Reputation</h2>
+  <p>
+    The <code>ReputationRegistry</code> read surface is <strong>not in Arc's
+    documentation</strong> — the tutorials cover writes only. These were found by probing
+    the deployed contract:
+  </p>
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Function</th><th>Returns</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td><code>getClients(uint256)</code></td><td><code>address[]</code> — who attested</td><td class="sev-info">verified</td></tr>
+      <tr><td><code>getLastIndex(uint256,address)</code></td><td><code>uint64</code> — attestations from one client</td><td class="sev-info">verified</td></tr>
+      <tr><td><code>getSummary(uint256,address[],string,string)</code></td><td>aggregate</td><td class="sev-warning">exists, untested</td></tr>
+      <tr><td><code>readFeedback(uint256,address,uint64)</code></td><td>a tuple with no published layout</td><td class="sev-error">not decoded</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note">
+    <span class="t">Why <code>readFeedback</code> is left undecoded</span>
+    <p>
+      Its return tuple can be observed but not confirmed: guessing which word holds the
+      score would silently produce plausible, wrong numbers. So <code>arc-agents</code>
+      reports attestation <em>volume</em> and the most active attesters, and says
+      explicitly that per-attestation scores need the canonical ERC-8004 ABI. A stated gap
+      is worth more than a confident guess.
+    </p>
+  </div>
+
+  <p>
+    Popular agents have thousands of attesters — agent&nbsp;#1 has 1,315 — and one
+    <code>eth_call</code> each trips the rate limit. The fan-out is capped at 100 clients
+    by default; a partial result is marked with <code>+</code> and says how to widen it.
+  </p>
+
+  <h2 id="metadata">Agent metadata</h2>
+  <p>
+    <code>tokenURI</code> points at an application-defined JSON document. The shape from
+    Arc's own example:
+  </p>
+  <pre><code>{
+  "name": "DeFi Arbitrage Agent v1.0",
+  "description": "Autonomous trading agent for cross-DEX arbitrage on Arc",
+  "agent_type": "trading",
+  "capabilities": ["arbitrage_detection", "liquidity_monitoring"],
+  "version": "1.0.0"
+}</code></pre>
+  <p>
+    Nothing enforces this — the fields are application-defined unless an integration
+    follows a separate convention, so callers get whatever the operator published.
+  </p>
+
+  <h2 id="next">What this is a foundation for</h2>
+  <p>
+    An agent directory: searchable capabilities, reputation ranking, metadata pinning.
+    That is the obvious next build, and it needs exactly what this package does — cheap
+    enumeration plus an honest reputation read.
+  </p>
+
+  <h2 id="tests">Tests</h2>
+  <p>
+    17 tests, no network. The binary search is verified against fixture registries of
+    several sizes including an empty one, the concurrency pool is checked for bounded
+    parallelism and order preservation, and EIP-55 checksumming is pinned to the canonical
+    test vector.
+  </p>
+
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <span>
+      Community tooling. Not affiliated with or endorsed by Circle —
+      <a href="https://arc.io">arc.io</a> and
+      <a href="https://docs.arc.io">docs.arc.io</a> are Circle's.
+    </span>
+    <span class="right">Arc Testnet · chain 5042002</span>
+  </div>
+</footer>
+
+</body>
+</html>

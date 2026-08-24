@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>arc-server — local dev console for Arc</title>
+<meta name="description" content="Live chain data, a paste-and-lint box, and offline full-text search across 636 mirrored Arc and Circle documentation pages — one command, zero dependencies.">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>◑</text></svg>">
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="index.html">arctools <span>for Arc</span></a>
+    <nav class="site-nav">
+      <a href="index.html">Overview</a>
+      <a href="arc-lint.html">arc-lint</a>
+      <a href="arc-index.html">arc-index</a>
+      <a href="arc-agents.html">arc-agents</a>
+      <a href="arc-server.html" aria-current="page">console</a>
+      <a href="notes.html">Arc notes</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow">arc-server</p>
+    <h1>The chain, the tools, and the docs behind one command.</h1>
+    <p class="lede">
+      A local dev console: live Arc data, a paste-and-lint box, and full-text search over
+      <strong>636 mirrored documentation pages</strong> that works with no network at all.
+      Zero dependencies, no build step.
+    </p>
+    <div class="actions">
+      <a class="btn" href="#api">See the API</a>
+      <a class="btn ghost" href="#docs">Docs mirror</a>
+    </div>
+  </div>
+</section>
+
+<main class="wrap">
+
+  <h2 id="run">Running it</h2>
+  <pre><code>npm run serve                                  <span class="c"># http://127.0.0.1:8787</span>
+npm run serve -- --port 9000 --rpc https://…   <span class="c"># override</span></code></pre>
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Tab</th><th>What it shows</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Chain</strong></td><td>Chain id, head block, gas price against the 20 Gwei floor</td></tr>
+      <tr><td><strong>USDC index</strong></td><td>Dual-emitter scan with the phantom-row and volume-inflation numbers, plus per-address reconciliation</td></tr>
+      <tr><td><strong>Agents</strong></td><td>Registry size, agent listing, owner and attestation detail</td></tr>
+      <tr><td><strong>Lint</strong></td><td>Paste Solidity or a deploy script, get findings with doc links</td></tr>
+      <tr><td><strong>Docs</strong></td><td>Ranked full-text search across every mirrored page, with the body inline</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="api">A JSON API, not just a UI</h2>
+  <p>
+    Every tab is a thin client over routes that are just as usable from <code>curl</code>,
+    an editor extension, or CI.
+  </p>
+
+  <pre><code>curl -s localhost:8787/api/index/scan?blocks=150 | jq .stats
+curl -s localhost:8787/api/docs/search?q=usdc+decimals | jq '.hits[0]'
+curl -s -X POST localhost:8787/api/lint \
+  -H 'content-type: application/json' \
+  -d '{"lang":"solidity","source":"…"}'</code></pre>
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Route</th><th></th></tr></thead>
+    <tbody>
+      <tr><td><code>GET /api/chain</code></td><td>Chain id, head, gas price</td></tr>
+      <tr><td><code>GET /api/index/scan?blocks=N</code></td><td>Canonical movements and dedup stats</td></tr>
+      <tr><td><code>GET /api/index/reconcile?address=&amp;blocks=</code></td><td>Indexed delta vs <code>eth_getBalance</code></td></tr>
+      <tr><td><code>GET /api/agents/count</code></td><td>Registry size via binary search</td></tr>
+      <tr><td><code>GET /api/agents/list?from=&amp;limit=</code></td><td>Owner and metadata URI per token id</td></tr>
+      <tr><td><code>GET /api/agents/show?id=</code></td><td>One agent with its attestation summary</td></tr>
+      <tr><td><code>GET /api/lint/rules</code></td><td>All 14 rules with severities and doc links</td></tr>
+      <tr><td><code>POST /api/lint</code></td><td><code>{source, lang, filename}</code> → findings</td></tr>
+      <tr><td><code>GET /api/docs/search?q=&amp;limit=</code></td><td>Ranked hits with marked excerpts</td></tr>
+      <tr><td><code>GET /api/docs/page?site=&amp;path=</code></td><td>One page, full markdown</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="docs">The documentation mirror</h2>
+  <pre><code>npm run mirror-docs                       <span class="c"># Arc            → ./docs</span>
+npm run mirror-docs -- --site circle      <span class="c"># Circle platform → ./docs-circle</span></code></pre>
+
+  <div class="stats">
+    <div class="stat"><div class="n">108</div><div class="l">Arc pages</div></div>
+    <div class="stat"><div class="n">528</div><div class="l">Circle Developer Platform pages</div></div>
+    <div class="stat"><div class="n">9.1 MB</div><div class="l">searchable offline</div></div>
+  </div>
+
+  <p>
+    The crawler starts from each site's <code>llms.txt</code> and follows internal links
+    breadth-first. Mintlify serves the markdown source of every page at
+    <code>&lt;path&gt;.md</code>, so the mirror is real prose rather than scraped HTML —
+    which is also why pages missing from <code>llms.txt</code> still land.
+  </p>
+  <p>
+    Search ranks title matches above summary matches above body frequency, and requires
+    every term to appear. The boilerplate index banner Mintlify prepends to every page is
+    stripped, or it would match everything.
+  </p>
+
+  <h2 id="caching">Caching, because the RPC bites back</h2>
+  <p>
+    Arc's public RPC sits behind Cloudflare and answers bursts with 429. Every RPC-backed
+    route goes through a TTL cache that also <strong>collapses concurrent misses</strong>,
+    so a page load with four widgets makes one RPC pass rather than four. The agent count
+    — 41 <code>eth_call</code>s — is cached for five minutes, since the registry only
+    grows.
+  </p>
+
+  <div class="note warn">
+    <span class="t">Local by default, and it should stay that way</span>
+    <p>
+      The server binds to <code>127.0.0.1</code> and has no authentication. It is a
+      developer tool, not a public service — do not expose it.
+    </p>
+  </div>
+
+  <h2 id="tests">Tests</h2>
+  <p>
+    14 tests with no network: the documentation loader and ranking, the cache's TTL,
+    coalescing, and failure behaviour, bigint serialisation, and request validation on
+    every route.
+  </p>
+
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <span>
+      Community tooling. Not affiliated with or endorsed by Circle —
+      <a href="https://arc.io">arc.io</a> and
+      <a href="https://docs.arc.io">docs.arc.io</a> are Circle's.
+    </span>
+    <span class="right">Arc Testnet · chain 5042002</span>
+  </div>
+</footer>
+
+</body>
+</html>

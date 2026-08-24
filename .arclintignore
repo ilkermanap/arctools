@@ -1,0 +1,9 @@
+# arc-lint's own rule definitions quote the patterns they search for, and the
+# fixtures exist precisely to trip every rule.
+packages/arc-lint/src/rules.ts
+packages/arc-lint/test/
+
+# Mirrored upstream documentation, and the console's own sample snippets.
+docs/
+docs-circle/
+packages/arc-server/src/ui.ts

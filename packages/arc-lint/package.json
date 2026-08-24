@@ -1,0 +1,12 @@
+{
+  "name": "arc-lint",
+  "version": "0.1.0",
+  "description": "Flag Arc-incompatible Solidity and script patterns before you deploy",
+  "type": "module",
+  "engines": { "node": ">=22.6" },
+  "bin": { "arc-lint": "./src/cli.ts" },
+  "exports": { ".": "./src/cli.ts" },
+  "scripts": { "test": "node --test 'test/*.test.ts'" },
+  "keywords": ["arc", "circle", "usdc", "stablecoin", "evm", "web3"],
+  "license": "MIT"
+}

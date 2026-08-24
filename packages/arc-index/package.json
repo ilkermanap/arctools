@@ -1,0 +1,12 @@
+{
+  "name": "arc-index",
+  "version": "0.1.0",
+  "description": "Dual-emitter-safe USDC indexing and balance reconciliation for Arc",
+  "type": "module",
+  "engines": { "node": ">=22.6" },
+  "bin": { "arc-index": "./src/cli.ts" },
+  "exports": { ".": "./src/cli.ts" },
+  "scripts": { "test": "node --test 'test/*.test.ts'" },
+  "keywords": ["arc", "circle", "usdc", "stablecoin", "evm", "web3"],
+  "license": "MIT"
+}

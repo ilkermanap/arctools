@@ -1,0 +1,22 @@
+{
+  "name": "arcio-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Developer tooling for Arc, Circle's stablecoin-native L1",
+  "type": "module",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "node --test 'packages/*/test/*.test.ts'",
+    "lint": "node packages/arc-lint/src/cli.ts packages",
+    "arc-lint": "node packages/arc-lint/src/cli.ts",
+    "arc-index": "node packages/arc-index/src/cli.ts",
+    "arc-agents": "node packages/arc-agents/src/cli.ts",
+    "serve": "node packages/arc-server/src/server.ts",
+    "mirror-docs": "node tools/mirror-docs.ts"
+  }
+}
