@@ -138,10 +138,10 @@ registered agents  885 423
 highest token id   885 422
 ```
 
-A log-based backfill would need ~1 950 `eth_getLogs` calls to cover 58M blocks at
-the default endpoint's real 30 000-block cap (~5 900 on the dRPC mirror) — and
-**zero registry logs appear in the last 6M blocks** (~35 days), so registration
-all predates any cheap window.
+The registries are active — ~268 000 logs across the last 1.17M blocks, mostly
+reputation attestations — but the 885k agents accumulated over the chain's whole
+~58M-block history, so counting by log replay means backfilling all of it: roughly
+2 000–5 900 `eth_getLogs` calls depending on which cap the endpoint applies.
 
 ReputationRegistry read surface, discovered by probing (not documented):
 

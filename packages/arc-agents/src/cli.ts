@@ -13,9 +13,9 @@ Usage:
   arc-agents show <id> [--resolve]
   arc-agents reputation <id> [--limit N] [--max-clients N]
 
-The AgentIdentity contract is a plain ERC-721 with no totalSupply(), and Arc's
-RPC caps eth_getLogs at 30k blocks, so this reads state directly instead of
-replaying registration logs.
+The AgentIdentity contract is a plain ERC-721 with no totalSupply(). Counting by
+replaying registration logs means backfilling the chain's whole history at a 30k
+block cap, so this probes state instead: O(log n) calls rather than O(blocks).
 
 Options:
   --from N     First token id (default 0)

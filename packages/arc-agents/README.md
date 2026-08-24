@@ -21,9 +21,11 @@ node src/cli.ts reputation 4 --max-clients 500
 true, but it does **not** implement ERC721Enumerable, so there is no
 `totalSupply()` to ask.
 
-The log route is worse. `rpc.testnet.arc.io` caps `eth_getLogs` at 30 000 blocks,
-so covering ~58M blocks costs ~1 950 requests — and a 6M-block sweep (~35 days)
-finds **zero** registry logs, because registration all predates any cheap window.
+The log route is expensive. The registries are busy — ~268 000 logs across the
+last 1.17M blocks — but the 885k agents accumulated over the chain's entire ~58M
+block history, so a complete count means backfilling all of it. At the endpoint's
+real cap (30 000 blocks, dropping to 10 000 for deeper queries) that is roughly
+2 000–5 900 requests before you learn the number.
 
 Token ids are minted sequentially from 0, so an exponential probe plus a binary
 search over `ownerOf` finds the boundary in ~41 `eth_call`s:

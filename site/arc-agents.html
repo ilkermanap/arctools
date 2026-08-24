@@ -55,11 +55,12 @@
       </p>
     </div>
     <div class="card">
-      <h3>Logs are out of reach</h3>
+      <h3>Counting by logs is expensive</h3>
       <p>
-        <code>rpc.testnet.arc.io</code> caps <code>eth_getLogs</code> at 30,000 blocks, so
-        covering ~58M blocks costs ~1,950 requests — and a 6M-block sweep finds
-        <strong>zero</strong> registry logs. Registration all predates any cheap window.
+        The registries are busy — ~268,000 logs in the last 1.17M blocks — but the 885k
+        agents accumulated over the chain's whole ~58M-block history, so a complete count
+        means backfilling all of it: <strong>2,000–5,900 requests</strong> at the real
+        <code>eth_getLogs</code> caps.
       </p>
     </div>
   </div>
@@ -80,8 +81,8 @@
 
   <div class="stats">
     <div class="stat"><div class="n">41</div><div class="l">eth_calls to find the registry size</div></div>
-    <div class="stat"><div class="n">~1,950</div><div class="l">eth_getLogs calls a full backfill would need</div></div>
-    <div class="stat"><div class="n">0</div><div class="l">registry logs in the last 6M blocks (~35 days)</div></div>
+    <div class="stat"><div class="n">2,000+</div><div class="l">eth_getLogs calls a full backfill would need</div></div>
+    <div class="stat"><div class="n">O(log n)</div><div class="l">vs O(blocks) — the probe scales with registry size, not chain length</div></div>
   </div>
 
   <h2 id="commands">Commands</h2>

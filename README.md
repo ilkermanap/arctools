@@ -37,7 +37,8 @@ wrong and *wrong* code look fine, and the standard toolchain says nothing:
 
 Every rule and every claim above traces to a specific line in Arc's docs or to a
 live RPC observation. See [ARC-NOTES.md](ARC-NOTES.md) for the full research
-trail, including five gaps in Arc's own documentation.
+trail, and [ARC-DOCS-FEEDBACK.md](ARC-DOCS-FEEDBACK.md) for five gaps in Arc's own
+documentation, written up with reproduction for upstream.
 
 ### Prior art
 
@@ -181,11 +182,11 @@ npm run arc-agents -- reputation 4
   cost                41 eth_calls
 ```
 
-`AgentIdentity` is a plain ERC-721 with no `totalSupply()`, and there are zero
-registry logs in the last 6M blocks, so a log backfill would burn ~1,950
-`eth_getLogs` calls before finding anything. Ids are sequential, so an
-exponential probe plus binary search over `ownerOf` answers the same question in
-41 calls.
+`AgentIdentity` is a plain ERC-721 with no `totalSupply()`. The registries are
+busy, but the 885k agents accumulated over the chain's whole history, so counting
+by log replay means backfilling ~58M blocks — 2,000–5,900 requests at the real
+`eth_getLogs` caps. Ids are sequential, so an exponential probe plus binary
+search over `ownerOf` answers the same question in 41 calls.
 
 [→ packages/arc-agents](packages/arc-agents)
 
@@ -267,6 +268,7 @@ tools/
 docs/                   108 mirrored Arc pages          (generated, not committed)
 docs-circle/            528 mirrored Circle pages         (generated, not committed)
 ARC-NOTES.md            research trail: verified chain facts, hazards, doc gaps
+ARC-DOCS-FEEDBACK.md    five documentation gaps reported upstream, with repro
 ```
 
 `arc-common` deliberately has no dependencies — not even for keccak256, which
