@@ -266,7 +266,7 @@ async function loadAgentCount() {
     const c = await api("/api/agents/count");
     $("ag-cards").innerHTML = card("registered agents", Number(c.total).toLocaleString()) +
       card("highest token id", c.highestId) +
-      card("probe cost", c.ethCalls + " eth_calls", "vs ~590 eth_getLogs calls");
+      card("probe cost", c.ethCalls + " eth_calls", "vs ~1,950 eth_getLogs calls");
   } catch (e) { $("ag-cards").innerHTML = '<p class="note error">' + esc(e.message) + '</p>'; }
 }
 $("ag-go").onclick = async () => {

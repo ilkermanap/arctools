@@ -194,9 +194,10 @@ processor.run(new TypeormDatabase(), async (ctx) =&gt; {
   <h2 id="limits">Operational limits worth knowing</h2>
   <ul>
     <li>
-      <code>eth_getLogs</code> is capped at <strong>100,000 blocks</strong> on Arc's
-      public RPC. This is not documented; it surfaces as error <code>-32602</code>.
-      Requests are chunked and split recursively on failure.
+      <code>eth_getLogs</code> caps differ per endpoint and none are documented:
+      <strong>30,000</strong> on <code>rpc.testnet.arc.io</code>, <strong>10,000</strong>
+      on the dRPC mirror, 50,000+ on Blockdaemon. Requests are chunked to fit the
+      strictest, and split recursively on failure.
     </li>
     <li>
       The RPC sits behind Cloudflare and returns <strong>429 on bursts</strong>, even at

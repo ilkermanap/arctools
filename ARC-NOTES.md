@@ -25,7 +25,7 @@ Mainnet is announced for **16 September 2026**; today only testnet exists.
 | Gas price observed | 21 Gwei (protocol floor 20, ceiling 20 000) |
 | Base fee target | ~$0.01 per transaction, EIP-1559 + EWMA smoothing |
 | Throughput | 30M gas/block, ~0.5 s blocks |
-| `eth_getLogs` range cap | **100 000 blocks** — not documented; found by hitting `-32602` |
+| `eth_getLogs` range cap | **Differs per endpoint and none are documented.** `rpc.testnet.arc.io` enforces **30 000** (`-32012`), the dRPC mirror **10 000** (`-35`), Blockdaemon 50 000+. The default endpoint's other validator reports `query exceeds max block range 100000` — a limit it does not enforce. |
 | Rate limiting | Cloudflare fronts the RPC and returns **429 on bursts**, even at concurrency 4 |
 
 ## The decimal trap
@@ -138,9 +138,10 @@ registered agents  885 423
 highest token id   885 422
 ```
 
-A log-based backfill would need ~590 `eth_getLogs` calls to cover 58M blocks at
-the 100k cap — and **zero registry logs appear in the last 6M blocks** (~35
-days), so registration all predates any cheap window.
+A log-based backfill would need ~1 950 `eth_getLogs` calls to cover 58M blocks at
+the default endpoint's real 30 000-block cap (~5 900 on the dRPC mirror) — and
+**zero registry logs appear in the last 6M blocks** (~35 days), so registration
+all predates any cheap window.
 
 ReputationRegistry read surface, discovered by probing (not documented):
 
@@ -159,7 +160,9 @@ an IPFS URI.
 
 ## Doc gaps found
 
-1. The `eth_getLogs` 100 000-block cap is not in the docs.
+1. The `eth_getLogs` range caps are undocumented, differ across the four endpoints
+   the docs present as interchangeable, and the default endpoint's error message
+   quotes a limit (100 000) that is more than 3x what it actually enforces (30 000).
 2. Cloudflare rate limiting on the public RPC is not mentioned.
 3. The ERC-8004 registry **read** ABI is absent — the tutorials only cover writes.
 4. `readFeedback`'s return tuple has no published layout.

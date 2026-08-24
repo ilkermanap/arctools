@@ -39,14 +39,36 @@ export const ARC_TESTNET_WS = "wss://rpc.testnet.arc.io";
 export const ARC_TESTNET_CHAIN_ID = 5042002;
 
 /**
+ * Largest eth_getLogs range that works on every documented Arc endpoint.
+ *
+ * The four endpoints Arc's docs list as interchangeable enforce different caps,
+ * none of them documented (measured 2026-08-24):
+ *
+ *   rpc.testnet.arc.io              30_000   (-32012 "requested range too large")
+ *   rpc.blockdaemon.testnet.arc.io  50_000+
+ *   rpc.drpc.testnet.arc.io         10_000   (-35 "ranges over 10000 blocks…")
+ *
+ * Worse, the default endpoint's *other* validator reports a limit it does not
+ * enforce: a genesis-to-latest query fails with -32602 "query exceeds max block
+ * range 100000" while 30_001 blocks already fails. Trusting that number would
+ * make every request fail, so this defaults to the value that works everywhere.
+ */
+export const SAFE_GET_LOGS_RANGE = 10_000;
+
+/**
  * Chain entry for `createConfig({ chains: { arcTestnet: arcTestnetChain() } })`.
  *
- * `ethGetLogsBlockRange` is pinned to Arc's documented-by-error 100_000-block
- * cap. Without it Ponder probes for the limit by triggering failures, which is
- * slow and noisy on a rate-limited endpoint.
+ * `ethGetLogsBlockRange` is pinned so Ponder does not probe for the limit by
+ * triggering failures, which is slow and noisy on a rate-limited endpoint. Raise
+ * it via `ethGetLogsBlockRange` if your endpoint allows more.
  */
 export function arcTestnetChain(
-  overrides: { rpc?: string | string[]; ws?: string; pollingInterval?: number } = {},
+  overrides: {
+    rpc?: string | string[];
+    ws?: string;
+    pollingInterval?: number;
+    ethGetLogsBlockRange?: number;
+  } = {},
 ): {
   id: number;
   rpc: string | string[];
@@ -60,7 +82,7 @@ export function arcTestnetChain(
     ...(overrides.ws ? { ws: overrides.ws } : {}),
     // Blocks are ~0.5 s, so polling faster than that only burns rate limit.
     pollingInterval: overrides.pollingInterval ?? 500,
-    ethGetLogsBlockRange: 100_000,
+    ethGetLogsBlockRange: overrides.ethGetLogsBlockRange ?? SAFE_GET_LOGS_RANGE,
   };
 }
 

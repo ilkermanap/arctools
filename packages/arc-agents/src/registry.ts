@@ -6,9 +6,9 @@
  *  1. AgentIdentity is a plain ERC-721 with no `totalSupply()` -- it does not
  *     implement ERC721Enumerable -- so there is no direct way to ask how many
  *     agents exist.
- *  2. Registration happened long before the current chain head. Arc's public RPC
- *     caps eth_getLogs at 100_000 blocks, so a full log backfill of ~58M blocks
- *     costs ~590 requests before you learn anything.
+ *  2. Registration happened long before the current chain head. rpc.testnet.arc.io
+ *     caps eth_getLogs at 30_000 blocks, so a full log backfill of ~58M blocks
+ *     costs ~1_950 requests before you learn anything.
  *
  * Token ids are minted sequentially from 0, so an exponential probe plus a
  * binary search over `ownerOf` finds the registry size in ~40 eth_calls instead.

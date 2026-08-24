@@ -65,9 +65,13 @@ The example schema indexes `(txHash, from, to, value, logIndex)` for this query.
 
 ## `arcTestnetChain()`
 
-Pins `ethGetLogsBlockRange: 100_000`, Arc's cap. Without it Ponder probes for the
-limit by triggering failures, which is slow and noisy on a rate-limited endpoint.
-`pollingInterval` defaults to 500 ms, matching Arc's block time.
+Pins `ethGetLogsBlockRange` to 10 000 — the largest range every documented Arc
+endpoint accepts. The four endpoints the docs present as interchangeable enforce
+different caps (30 000 default, 10 000 dRPC, 50 000+ Blockdaemon) and none are
+documented; the default endpoint even reports a 100 000 limit it does not
+enforce. Raise it with `arcTestnetChain({ ethGetLogsBlockRange })` if your
+endpoint allows more. `pollingInterval` defaults to 500 ms, matching Arc's block
+time.
 
 ## Things the native emitter never logs
 

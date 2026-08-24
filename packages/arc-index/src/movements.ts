@@ -22,8 +22,10 @@ export interface ScanResult extends DeriveResult {
 }
 
 /**
- * Arc's public RPC caps eth_getLogs at 100_000 blocks, and other providers cap
- * lower, so split on failure rather than guessing one size that works everywhere.
+ * Arc's documented RPC endpoints enforce different eth_getLogs caps -- 30_000 on
+ * rpc.testnet.arc.io, 10_000 on the dRPC mirror, more on Blockdaemon -- and none
+ * of them are documented. The default here fits the smallest, and any endpoint
+ * that refuses anyway is handled by splitting rather than failing.
  */
 async function logsChunked(
   rpc: Rpc,

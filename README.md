@@ -182,7 +182,7 @@ npm run arc-agents -- reputation 4
 ```
 
 `AgentIdentity` is a plain ERC-721 with no `totalSupply()`, and there are zero
-registry logs in the last 6M blocks, so a log backfill would burn ~590
+registry logs in the last 6M blocks, so a log backfill would burn ~1,950
 `eth_getLogs` calls before finding anything. Ids are sequential, so an
 exponential probe plus binary search over `ownerOf` answers the same question in
 41 calls.

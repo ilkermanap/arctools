@@ -66,7 +66,7 @@ export const ARC_TESTNET_RPC = "https://rpc.testnet.arc.io";
  *
  * `rateLimit` is deliberately conservative: Arc's public RPC sits behind
  * Cloudflare and answers bursts with 429. `maxBatchCallSize` stays small because
- * the RPC caps eth_getLogs at 100_000 blocks and large multicalls time out.
+ * the RPC caps eth_getLogs at 30_000 blocks and large multicalls time out.
  */
 export const ARC_RPC_SETTINGS = {
   url: ARC_TESTNET_RPC,

@@ -50,7 +50,9 @@ Replay every indexed movement for an address and compare against
 
 ## Notes
 
-- `eth_getLogs` is capped at **100 000 blocks** on Arc's public RPC. Requests are
+- `eth_getLogs` caps differ per endpoint and none are documented: **30 000** on
+  `rpc.testnet.arc.io`, **10 000** on the dRPC mirror, 50 000+ on Blockdaemon.
+  Requests are
   chunked and split recursively on failure, so a provider with a tighter limit
   still works.
 - The RPC sits behind Cloudflare and returns 429 on bursts. The shared client

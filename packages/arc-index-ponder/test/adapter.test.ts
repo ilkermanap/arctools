@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   arcTestnetChain, arcUsdcContracts, erc20MarkerLookup, isUnmatchableErc20Event,
   movementFromNativeEvent, ARC_TESTNET_CHAIN_ID, ERC20_EMITTER, NATIVE_EMITTER, SCALE, ZERO,
+  SAFE_GET_LOGS_RANGE,
   type MovementRow, type PonderTransferEvent,
 } from "../src/index.ts";
 
@@ -17,17 +18,26 @@ function evt(from: string, to: string, value: bigint, logIndex = 0, tx = "0xTX")
   };
 }
 
-test("chain config pins Arc's 100k eth_getLogs cap", () => {
+test("chain config pins a getLogs range every Arc endpoint accepts", () => {
   const chain = arcTestnetChain();
   assert.equal(chain.id, ARC_TESTNET_CHAIN_ID);
-  assert.equal(chain.ethGetLogsBlockRange, 100_000);
   assert.equal(chain.pollingInterval, 500, "blocks are ~0.5s");
   assert.equal(chain.ws, undefined, "ws is only set when asked for");
 
-  const custom = arcTestnetChain({ rpc: ["a", "b"], ws: "wss://x", pollingInterval: 2000 });
+  // The default endpoint enforces 30_000 and the dRPC mirror 10_000, so the
+  // default has to fit the smallest. The 100_000 quoted in one endpoint's error
+  // message is not enforced anywhere and would fail every request.
+  assert.equal(chain.ethGetLogsBlockRange, SAFE_GET_LOGS_RANGE);
+  assert.equal(SAFE_GET_LOGS_RANGE, 10_000);
+  assert.ok(chain.ethGetLogsBlockRange <= 10_000, "must fit the strictest endpoint");
+
+  const custom = arcTestnetChain({
+    rpc: ["a", "b"], ws: "wss://x", pollingInterval: 2000, ethGetLogsBlockRange: 30_000,
+  });
   assert.deepEqual(custom.rpc, ["a", "b"]);
   assert.equal(custom.ws, "wss://x");
   assert.equal(custom.pollingInterval, 2000);
+  assert.equal(custom.ethGetLogsBlockRange, 30_000, "raisable for a permissive endpoint");
 });
 
 test("contracts cover both emitters, and the ERC-20 stream is optional", () => {

@@ -57,9 +57,9 @@
     <div class="card">
       <h3>Logs are out of reach</h3>
       <p>
-        Arc's RPC caps <code>eth_getLogs</code> at 100,000 blocks, so covering ~58M blocks
-        costs ~590 requests — and a 6M-block sweep finds <strong>zero</strong> registry
-        logs. Registration all predates any cheap window.
+        <code>rpc.testnet.arc.io</code> caps <code>eth_getLogs</code> at 30,000 blocks, so
+        covering ~58M blocks costs ~1,950 requests — and a 6M-block sweep finds
+        <strong>zero</strong> registry logs. Registration all predates any cheap window.
       </p>
     </div>
   </div>
@@ -80,7 +80,7 @@
 
   <div class="stats">
     <div class="stat"><div class="n">41</div><div class="l">eth_calls to find the registry size</div></div>
-    <div class="stat"><div class="n">~590</div><div class="l">eth_getLogs calls a full backfill would need</div></div>
+    <div class="stat"><div class="n">~1,950</div><div class="l">eth_getLogs calls a full backfill would need</div></div>
     <div class="stat"><div class="n">0</div><div class="l">registry logs in the last 6M blocks (~35 days)</div></div>
   </div>
 
