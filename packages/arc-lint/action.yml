@@ -3,7 +3,7 @@ description: >-
   Flag Arc-incompatible Solidity and script patterns before you deploy. Arc is
   EVM-compatible, so the differences that matter compile cleanly and never show
   up in a local EVM.
-author: arcio-tools
+author: ilkermanap
 branding:
   icon: alert-triangle
   color: blue

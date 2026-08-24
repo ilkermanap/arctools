@@ -29,7 +29,7 @@ blocking.
 | **GitHub Actions** | [`action.yml`](action.yml) in this package — annotates the diff, writes a step summary, or emits SARIF for the Security tab |
 
 ```yaml
-- uses: your-org/arcio-tools/packages/arc-lint@main
+- uses: ilkermanap/arctools/packages/arc-lint@main
   with:
     foundry: "true"
     format: sarif        # or github (default) / text

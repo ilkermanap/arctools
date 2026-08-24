@@ -1,4 +1,4 @@
-# arcio-tools
+# arctools
 
 Developer tooling for [Arc](https://arc.io), Circle's stablecoin-native Layer-1
 where **USDC is the native gas token**.
