@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import type { Log } from "../../arc-common/rpc.ts";
 import type { Hex } from "../../arc-common/abi.ts";
 import { Rpc } from "../../arc-common/rpc.ts";
@@ -135,4 +136,42 @@ test("net deltas sum to zero across a closed set of transfers", async () => {
   );
   const total = [...netDeltas(r.movements).values()].reduce((a, b) => a + b, 0n);
   assert.equal(total, 0n);
+});
+
+// Real mainnet case suggested in https://github.com/ilkermanap/arctools/issues/1.
+// The saved response is read locally: this test never calls an RPC endpoint.
+test("a mainnet escrow payout pairs six Transfer logs into three movements", async () => {
+  const { result: receipt } = JSON.parse(readFileSync(
+    new URL("./fixtures/mainnet-escrow-payout.receipt.json", import.meta.url), "utf8",
+  )) as { result: { transactionHash: Hex; status: Hex; blockNumber: Hex; logs: Log[] } };
+  assert.equal(receipt.transactionHash,
+    "0x73d026991436c92b1700af66f230b64a4004aa96758ce837cb732e6f253867b3");
+  assert.equal(receipt.status, "0x1");
+
+  const transfers = receipt.logs.filter((entry) => entry.topics[0] === TRANSFER_TOPIC);
+  assert.equal(transfers.length, 6);
+  const block = BigInt(receipt.blockNumber);
+  const r = await scan(fakeRpc(
+    transfers.filter((entry) => entry.address.toLowerCase() === NATIVE_EMITTER),
+    transfers.filter((entry) => entry.address.toLowerCase() === ERC20_EMITTER),
+  ), block, block);
+
+  const escrow = "0x64ca39fc57315d0d488accac07c37c6e841cd058" as Hex;
+  const adapter = "0x73c617e808ed5c7ca41413dfc6ee940ddcbb0b8d" as Hex;
+  const feeRecipient = "0xadac7534d3fe868e28c77df5cd930f2635bcb63a" as Hex;
+  const worker = "0x092f4483526ebc2476c247cb88d166adb7c3232f" as Hex;
+  assert.deepEqual(r.movements.map(({ from, to, value6, via }) => ({ from, to, value6, via })), [
+    { from: escrow, to: adapter, value6: 2_000_000n, via: "erc20" },
+    { from: adapter, to: feeRecipient, value6: 20_000n, via: "erc20" },
+    { from: adapter, to: worker, value6: 1_980_000n, via: "erc20" },
+  ]);
+  assert.deepEqual(r.anomalies, []);
+
+  const deltas = netDeltas(r.movements);
+  assert.equal(deltas.get(escrow), -2_000_000n * SCALE);
+  assert.equal(deltas.get(adapter), 0n);
+  assert.equal(deltas.get(feeRecipient), 20_000n * SCALE);
+  assert.equal(deltas.get(worker), 1_980_000n * SCALE);
+  // Transfer flow includes the escrow-to-adapter leg; it is not worker earnings.
+  assert.equal(r.stats.canonicalVolume, 4_000_000n * SCALE);
 });

@@ -66,6 +66,25 @@ Replay every indexed movement for an address and compare against
 node --test 'test/*.test.ts'
 ```
 
-10 tests against canned logs, no network. They pin the pairing rule (matching
+The synthetic cases use canned logs, no network. They pin the pairing rule (matching
 `from`, `to`, and `value × 10¹²`), one-to-one log consumption, dust truncation,
 the self-transfer and zero-value exceptions, and that net deltas sum to zero.
+
+### Mainnet escrow receipt fixture
+
+[Issue #1](https://github.com/ilkermanap/arctools/issues/1) describes ArcBounty job
+#4's payout on Arc mainnet (chain ID 5042). The
+[saved JSON-RPC response](test/fixtures/mainnet-escrow-payout.receipt.json) was
+retrieved separately through BlockVectra's keyed Arc endpoint on
+2026-11-07 at 22:46 UTC, after an `eth_chainId` check returned 5042. It is not the
+issue author's earlier saved copy. The response has SHA-256
+`5a391370682effce1dc8fe057ec4d259b53fd2a353c13b22a73e570000bef1b4`.
+
+The offline test feeds its six USDC `Transfer` logs through the normal scanner:
+2 USDC escrow → adapter, 0.02 USDC adapter → fee recipient, and 1.98 USDC
+adapter → worker. It checks three movements, a zero adapter delta, and the
+worker's 1.98 USDC delta. Gross transfer flow is 4 USDC, not worker earnings.
+
+This is one saved receipt, not a live RPC test or proof of archive coverage,
+canonicality, finality, gas accounting, or all of the wallet's balances. No API
+key is included or required to run the test.
